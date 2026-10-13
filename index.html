@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini Earn</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://sad.adsgram.ai/js/sad.js"></script>
+<style>
+body{background:#0f172a;color:#fff;font-family:Arial,sans-serif;text-align:center;padding:20px;margin:0}
+.card{background:#1e293b;padding:20px;border-radius:16px;margin-top:16px;text-align:left}
+.coins{font-size:38px;font-weight:800;color:#facc15;text-align:center}
+button{background:#3b82f6;color:#fff;border:none;padding:14px;border-radius:12px;font-size:16px;width:100%;margin-top:12px;font-weight:600;cursor:pointer}
+button:disabled{background:#475569}
+.small{color:#94a3b8;font-size:13px;text-align:center}
+.input{width:100%;padding:12px;border-radius:10px;border:none;background:#0f172a;color:#fff;margin-top:10px;box-sizing:border-box}
+</style>
+</head>
+<body>
+<h2>Mini Earn Bot</h2>
+<div class="card" style="text-align:center">
+<div class="coins" id="coins">0 Coins</div>
+<div class="small">1 Ad = 10 Coins | 1 Referral = 100 Coins</div>
+<button id="watchBtn">Watch Ad & Earn 10</button>
+<div id="status" class="small" style="margin-top:8px;height:16px"></div>
+</div>
+
+<div class="card">
+<b>Refer & Earn</b>
+<div class="small" style="text-align:left;margin-top:6px">Share your link. You get 100 Coins for each friend.</div>
+<input id="refLink" class="input" readonly>
+<button onclick="copyRef()">Copy Referral Link</button>
+<div class="small" id="refCount" style="margin-top:8px"></div>
+</div>
+
+<div class="card">
+<b>Tasks</b>
+<button onclick="dailyBonus()">Daily Bonus +50 Coins</button>
+</div>
+
+<script>
+const tg = window.Telegram.WebApp;
+tg.ready(); tg.expand();
+const user = tg.initDataUnsafe.user;
+const userId = user? user.id : 0;
+
+let coins = 0;
+const AdController = window.Adsgram.init({ blockId: "53715" });
+
+async function loadUser(){
+  const res = await fetch(`/api/user?user_id=${userId}`);
+  const data = await res.json();
+  coins = data.coins || 0;
+  document.getElementById('coins').innerText = coins + ' Coins';
+  document.getElementById('refCount').innerText = `Total Referrals: ${data.referrals || 0}`;
+  document.getElementById('refLink').value = `https://t.me/mini_uearn_bot?start=ref_${userId}`;
+}
+loadUser();
+
+document.getElementById('watchBtn').onclick = async () => {
+  const btn = document.getElementById('watchBtn');
+  const status = document.getElementById('status');
+  btn.disabled=true; status.innerText="Loading Ad...";
+  try{
+    const result = await AdController.show();
+    if(result.done){
+      const res = await fetch(`/api/add_coins`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({user_id: userId, amount: 10, reason: 'ad'})
+      });
+      const data = await res.json();
+      coins = data.coins;
+      document.getElementById('coins').innerText = coins + ' Coins';
+      status.innerText="Added 10 Coins!";
+      tg.HapticFeedback.notificationOccurred('success');
+    } else { status.innerText="Ad skipped"; }
+  }catch(e){ status.innerText="No ads available"; }
+  btn.disabled=false;
+}
+
+async function dailyBonus(){
+  const res = await fetch(`/api/add_coins`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({user_id: userId, amount: 50, reason: 'daily'})
+  });
+  const data = await res.json();
+  document.getElementById('coins').innerText = data.coins + ' Coins';
+  document.getElementById('status').innerText="Daily Bonus Claimed!";
+}
+
+function copyRef(){
+  const input = document.getElementById('refLink');
+  input.select(); document.execCommand('copy');
+  document.getElementById('status').innerText="Referral Link Copied!";
+}
+</script>
+</body>
+</html>
